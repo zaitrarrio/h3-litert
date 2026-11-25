@@ -17,7 +17,7 @@ BASE = f"https://{POD}-8000.proxy.runpod.net/{TOKEN}"
 
 def req(path, data=None, timeout=120):
     r = urllib.request.Request(BASE + path, data=data, method="POST" if data is not None else "GET",
-                               headers={"Content-Type": "application/octet-stream"})
+                               headers={"Content-Type": "application/octet-stream", "User-Agent": "h3-litert-remote/1"})
     return urllib.request.urlopen(r, timeout=timeout).read()
 
 
