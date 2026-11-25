@@ -160,6 +160,8 @@ public struct PddPlan: Equatable {
     }
 
     public func schedules() throws -> (video: Schedule, audio: Schedule) {
-        (try Schedule(sigmas: videoSigmas, rule: .euler), try Schedule(sigmas: audioSigmas, rule: .euler))
+        let video = try Schedule(sigmas: videoSigmas, rule: .euler)
+        let audio = try Schedule(sigmas: audioSigmas, rule: .euler)
+        return (video, audio)
     }
 }

@@ -99,7 +99,8 @@ public struct Geometry: Codable, Equatable, Hashable, Sendable, CustomStringConv
 
     /// Latent `(T, H, W)` at the VAE's spatial ratio.
     public func latent(spatialRatio: Int) throws -> (t: Int, h: Int, w: Int) {
-        (try videoLatentFrames(frames), height / spatialRatio, width / spatialRatio)
+        let t = try videoLatentFrames(frames)
+        return (t, height / spatialRatio, width / spatialRatio)
     }
 
     public var audioLatents: Int { H3LiteRTCore.audioLatents(frames: frames) }

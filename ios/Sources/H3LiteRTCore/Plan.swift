@@ -99,7 +99,7 @@ public struct Plan: CustomStringConvertible {
             let s1 = f * tae.tgrow[0] * nf[1] * 4 * px
             let s2 = f * tae.tgrow[0] * tae.tgrow[1] * nf[2] * 16 * px
             let out = f * tae.tUpscale * 3 * (tae.spatialScale * tae.spatialScale) * px
-            decodePeak = max(max(5 * s0, 5 * s1), max(5 * s2, s2 + 2 * out)) * a + fileBytes(entry.file)
+            decodePeak = max(max(5 * s0, 5 * s1), max(5 * s2, s2 + 2 * out)) * a
             fixedBytes += fileBytes(entry.file)
         } else {
             guard let vv = m.videoVae else { throw H3Error.manifest("this export has no video VAE decoder") }
