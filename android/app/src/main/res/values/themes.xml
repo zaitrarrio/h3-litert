@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- A bare platform theme; Material 3 colours come from Compose (ui/Theme.kt). -->
+    <style name="Theme.H3" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#101214</item>
+        <item name="android:statusBarColor">#101214</item>
+        <item name="android:navigationBarColor">#101214</item>
+    </style>
+</resources>

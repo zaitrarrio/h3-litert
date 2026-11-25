@@ -1,0 +1,41 @@
+[versions]
+# Kotlin >= 2.2 is required: the LiteRT 2.1.6 Kotlin API (litert-api) is compiled with Kotlin
+# metadata 2.3.0, which a 2.0/2.1 compiler refuses to read.
+kotlin = "2.3.0"
+agp = "8.13.2"
+kotlinx-serialization = "1.9.0"
+kotlinx-coroutines = "1.10.2"
+junit = "5.11.3"
+# LiteRT Next (CompiledModel API). Verified against the published 2.1.6 AAR
+# (com.google.ai.edge.litert:litert -> litert-api). The GPU accelerator (libLiteRtClGlAccelerator.so)
+# ships inside the `litert` AAR; there is no separate litert-gpu artifact for 2.1.x.
+litert = "2.1.6"
+compose-bom = "2025.11.00"
+activity-compose = "1.12.4"
+# litert-api 2.1.6 depends on lifecycle-runtime 2.10.0; pin every lifecycle artifact to the same.
+lifecycle = "2.10.0"
+core-ktx = "1.17.0"
+
+[libraries]
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+litert = { module = "com.google.ai.edge.litert:litert", version.ref = "litert" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-foundation = { module = "androidx.compose.foundation:foundation" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+android-application = { id = "com.android.application", version.ref = "agp" }

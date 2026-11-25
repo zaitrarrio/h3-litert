@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "h3-litert"
+version = "0.1.0"
+description = "MiniMax H3 (video + audio) on LiteRT: exporter, desktop runtime and the reference the web / Android / iOS runtimes are checked against."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+dependencies = ["numpy>=1.26", "safetensors>=0.4", "ai-edge-litert==2.1.2"]
+
+[project.optional-dependencies]
+export = ["torch>=2.9", "litert-torch==0.8.0", "ai-edge-quantizer==0.4.2"]
+test = ["pytest>=8", "diffusers>=0.43", "torch>=2.9", "litert-torch==0.8.0", "ai-edge-quantizer==0.4.2"]
+encode = ["torch>=2.9", "transformers>=5", "pillow"]
+
+[project.scripts]
+h3-litert = "h3_litert.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["h3_litert*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>h3-litert fixture check</title>
+<script type="importmap">
+{
+  "imports": {
+    "@litertjs/core": "/node_modules/@litertjs/core/dist/index.js",
+    "@litertjs/wasm-utils": "/node_modules/@litertjs/wasm-utils/dist/index.js"
+  }
+}
+</script>
+<style>body{font:14px/1.4 ui-monospace,monospace;margin:16px}pre{white-space:pre-wrap}</style>
+</head>
+<body>
+<h1>h3-litert fixture check</h1>
+<p>Open with <code>?accelerator=wasm|webgpu&amp;jspi=1&amp;threads=1&amp;preview=1&amp;fl2va=1&amp;base=/fixtures/tiny/</code>; the result is printed below (and returned by <code>window.runFixture</code>).</p>
+<pre id="out">loading…</pre>
+<script type="module">
+  import "/dist/tests/fixture-page.js";
+  const q = new URLSearchParams(location.search);
+  if (!q.has("manual")) {
+    const out = document.getElementById("out");
+    try {
+      const r = await window.runFixture({
+        base: q.get("base") ?? "/fixtures/tiny/",
+        wasmDir: q.get("wasm") ?? "/node_modules/@litertjs/core/wasm/",
+        accelerator: q.get("accelerator") ?? "wasm",
+        jspi: q.get("jspi") === "1",
+        threads: q.get("threads") === "1",
+        preview: q.get("preview") === "1",
+        fl2va: q.get("fl2va") === "1",
+      });
+      out.textContent = JSON.stringify(r, null, 2);
+    } catch (e) {
+      out.textContent = "FAILED: " + (e && e.stack ? e.stack : String(e));
+    }
+  }
+</script>
+</body>
+</html>

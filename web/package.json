@@ -1,0 +1,41 @@
+{
+  "name": "@h3/litert",
+  "version": "0.1.0",
+  "description": "MiniMax H3 video + audio generation on LiteRT.js: the host math, the graph pipeline and a browser studio",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist/src",
+    "dist/demo",
+    "demo",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run test:unit && npm run test:fixture",
+    "test:unit": "vitest run",
+    "test:fixture": "npm run build && node tests/run-fixture.mjs",
+    "serve": "node tests/serve.mjs --port 8765"
+  },
+  "dependencies": {
+    "@litertjs/core": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "playwright": "1.63.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
