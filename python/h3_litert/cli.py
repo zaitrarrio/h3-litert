@@ -44,7 +44,7 @@ def cmd_export(a) -> int:
            audio_src=SafetensorsDir(base / "audio_vae") if (base / "audio_vae").is_dir() else None,
            tae_src=SafetensorsDir(Path(a.tae)) if a.tae else None, vae_cfg=vae_cfg, audio_cfg=AudioVaeConfig.h3(),
            tae_cfg=TaeH3Config.taeh3() if a.tae else None, sizes=sizes, model_name="h3", weights=weights, chunk=a.chunk,
-           q_chunk=a.q_chunk, head_group=a.head_group, with_encoders=not a.no_encoders, extra_rows=tuple(a.rows or ()), jobs=a.jobs, log=_log)
+           q_chunk=a.q_chunk, head_group=a.head_group, with_encoders=not a.no_encoders, extra_rows=tuple(a.rows or ()), jobs=a.jobs, resume=a.resume, log=_log)
     return 0
 
 
@@ -153,7 +153,8 @@ def main(argv=None) -> int:
     e.add_argument("--size", action="append", help="WxHxF (repeatable; default 1344x768x124)")
     e.add_argument("--rows", type=int, action="append", help="extra packed-sequence lengths to export attention graphs for (Ref2VA)")
     e.add_argument("--no-encoders", action="store_true")
-    e.add_argument("--jobs", type=int, default=1, help="block graphs converted in parallel worker processes")
+    e.add_argument("--jobs", type=int, default=1, help="block graphs converted in parallel worker processes (~13 GB RAM each at H3 width)")
+    e.add_argument("--resume", action="store_true", help="keep the graphs already in --out (a killed export picks up where it stopped)")
     e.set_defaults(fn=cmd_export)
 
     def rt(p):

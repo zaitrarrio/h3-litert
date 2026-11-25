@@ -46,6 +46,10 @@ def _convert(module: torch.nn.Module, kwargs: dict, out: Path, f16: bool) -> Non
 def _block_job(args) -> dict:
     """Worker: export one block's `qkv` and `post` graphs (and its AdaLN rows) from a fresh source."""
     cfg_json, src_spec, l, out_dir, chunk, weights, ts = args
+    out_dir = Path(out_dir)
+    names = {k: f"block_{l:02d}_{k}.tflite" for k in ("qkv", "post")}
+    if ts.get("resume") and all(_graph_ok(out_dir / n) for n in names.values()) and (out_dir / f".adaln_{l:02d}.npy").is_file():
+        return {"l": l, **names, "qkv_secs": 0.0, "post_secs": 0.0}
     import warnings
 
     warnings.filterwarnings("ignore")
@@ -79,6 +83,60 @@ def _block_job(args) -> dict:
         rows = lin(x).reshape(-1, 3, 6, d).numpy().astype(np.float16)
     np.save(out_dir / f".adaln_{l:02d}.npy", rows)
     return {"l": l, **entry}
+
+
+RESUME = False  # skip graphs that already exist in `out_dir` (export(..., resume=True))
+
+
+def _graph_ok(path: Path) -> bool:
+    """A finished graph file (resume skips it): it exists and the flatbuffer loads."""
+    try:
+        if not path.is_file() or path.stat().st_size == 0:
+            return False
+        from ai_edge_litert import interpreter as li
+
+        li.Interpreter(model_path=str(path))
+        return True
+    except Exception:
+        return False
+
+
+def _run_blocks(job_args: list, jobs: int, log) -> list:
+    """`_block_job` over the blocks, `jobs` at once. A worker the OS kills (the cgroup OOM
+    killer is the usual one) loses its task and a plain Pool waits forever; this restarts the
+    pool and re-dispatches whatever is still missing."""
+    if jobs <= 1:
+        out = []
+        for a in job_args:
+            r = _block_job(a)
+            out.append(r)
+            log(f"  block {r['l']:02d}: qkv {r['qkv_secs']} s, post {r['post_secs']} s")
+        return out
+    import multiprocessing as mp
+    import time as _time
+
+    results: dict[int, dict] = {}
+    pending = list(job_args)
+    while pending:
+        with mp.get_context("spawn").Pool(jobs) as pool:
+            handles = {a[2]: pool.apply_async(_block_job, (a,)) for a in pending}
+            dead = False
+            while handles and not dead:
+                for l, h in list(handles.items()):
+                    if h.ready():
+                        r = h.get()
+                        results[r["l"]] = r
+                        log(f"  block {r['l']:02d}: qkv {r['qkv_secs']} s, post {r['post_secs']} s")
+                        del handles[l]
+                if any(p.exitcode is not None for p in pool._pool):  # a worker died: its task is lost
+                    dead = True
+                    break
+                _time.sleep(2)
+            if dead:
+                log("  a worker process died (killed? out of memory?): restarting the pool for the missing blocks")
+                pool.terminate()
+        pending = [a for a in pending if a[2] not in results]
+    return [results[l] for l in sorted(results)]
 
 
 def _quantize(path: Path, weights: str) -> None:
@@ -146,6 +204,7 @@ def export(
     with_encoders: bool = True,
     extra_rows: tuple[int, ...] = (),
     jobs: int = 1,
+    resume: bool = False,
     log=print,
 ) -> dict:
     if weights not in WEIGHT_FORMATS:
@@ -158,6 +217,8 @@ def export(
         g.validate(ratio)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    global RESUME
+    RESUME = resume
     torch.manual_seed(0)
     f16 = weights != "f32"
     files: dict[str, dict] = {}
@@ -171,6 +232,9 @@ def export(
         """Block graphs: f16 for an f16 export, f32 then weight-only quantized for int8 / int4.
         Everything else: f16 unless the export is all-f32."""
         t0 = time.time()
+        if RESUME and _graph_ok(out_dir / name):
+            done(name, t0)
+            return name
         _convert(module, kw, out_dir / name, (weights == "f16") if is_block else f16)
         if is_block and weights in ("int8", "int4"):
             _quantize(out_dir / name, weights)
@@ -206,21 +270,8 @@ def export(
         head = dit.norm_out_linear(x_adaln).reshape(-1, 2, d).numpy().astype(np.float16)
 
     # ---- blocks, one at a time, `jobs` at once ------------------------------------------------
-    job_args = [(cfg.to_json(), src_spec, l, str(out_dir), chunk, weights, {"x": x_adaln.numpy().tolist()}) for l in range(cfg.layers)]
-    results = []
-    if jobs > 1:
-        import multiprocessing as mp
-
-        with mp.get_context("spawn").Pool(jobs) as pool:
-            for r in pool.imap_unordered(_block_job, job_args):
-                results.append(r)
-                log(f"  block {r['l']:02d}: qkv {r['qkv_secs']} s, post {r['post_secs']} s")
-    else:
-        for a in job_args:
-            r = _block_job(a)
-            results.append(r)
-            log(f"  block {r['l']:02d}: qkv {r['qkv_secs']} s, post {r['post_secs']} s")
-    results.sort(key=lambda r: r["l"])
+    job_args = [(cfg.to_json(), src_spec, l, str(out_dir), chunk, weights, {"x": x_adaln.numpy().tolist(), "resume": resume}) for l in range(cfg.layers)]
+    results = _run_blocks(job_args, jobs, log)
     blocks = []
     for r in results:
         for k in ("qkv", "post"):
