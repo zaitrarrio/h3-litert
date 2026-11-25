@@ -180,7 +180,9 @@ class TimeEmbed(nn.Module):
 class H3Dit(nn.Module):
     """The whole DiT, for the uncut reference forward and for the exporter."""
 
-    def __init__(self, cfg: H3Config):
+    def __init__(self, cfg: H3Config, with_blocks: bool = True):
+        """`with_blocks=False` allocates everything but the transformer blocks and their AdaLN
+        projections (the exporter builds those one at a time: all 50 in f32 are 130 GB)."""
         super().__init__()
         self.cfg = cfg
         d = cfg.hidden
@@ -188,8 +190,9 @@ class H3Dit(nn.Module):
         self.text = TextRefine(cfg)
         self.embed_video = Embed(cfg, cfg.video_patch_dim())
         self.embed_audio = Embed(cfg, cfg.audio_in_channels)
-        self.blocks = nn.ModuleList(AttnFf(cfg) for _ in range(cfg.layers))
-        self.adaln = nn.ModuleList(nn.Linear(cfg.adaln_in(), 18 * d) for _ in range(cfg.layers))
+        n = cfg.layers if with_blocks else 0
+        self.blocks = nn.ModuleList(AttnFf(cfg) for _ in range(n))
+        self.adaln = nn.ModuleList(nn.Linear(cfg.adaln_in(), 18 * d) for _ in range(n))
         self.norm_out = nn.Parameter(torch.ones(d))
         self.norm_out_linear = nn.Linear(cfg.adaln_in(), 2 * d)
         self.head_video = Head(cfg, cfg.video_patch_dim(), self.norm_out)

@@ -41,6 +41,44 @@ def _convert(module: torch.nn.Module, kwargs: dict, out: Path, f16: bool) -> Non
     edge.export(str(out))
 
 
+def _block_job(args) -> dict:
+    """Worker: export one block's `qkv` and `post` graphs (and its AdaLN rows) from a fresh source."""
+    cfg_json, src_spec, l, out_dir, chunk, weights, ts = args
+    import warnings
+
+    warnings.filterwarnings("ignore")
+    from .dit import AttnFf, BlockPost, BlockQkv
+    from .weights import load_adaln, load_attn_ff, open_source
+
+    cfg = H3Config.from_json(cfg_json)
+    src = open_source(src_spec)
+    out_dir = Path(out_dir)
+    d, inner = cfg.hidden, cfg.dim
+    u = AttnFf(cfg).eval()
+    load_attn_ff(u, src, f"transformer_blocks.{l}")
+    f16_block = weights == "f16"
+    entry = {}
+    for kind, module, kw in (
+        ("qkv", BlockQkv(u), {"h": torch.randn(chunk, d), "mods": torch.randn(6, d), "cos": torch.rand(chunk, cfg.rotary_dim() // 2), "sin": torch.rand(chunk, cfg.rotary_dim() // 2)}),
+        ("post", BlockPost(u), {"h": torch.randn(chunk, d), "o": torch.randn(chunk, inner), "mods": torch.randn(6, d)}),
+    ):
+        name = f"block_{l:02d}_{kind}.tflite"
+        t0 = time.time()
+        _convert(module, kw, out_dir / name, f16_block)
+        if weights in ("int8", "int4"):
+            _quantize(out_dir / name, weights)
+        entry[kind] = name
+        entry[f"{kind}_secs"] = round(time.time() - t0, 1)
+    # The block's AdaLN rows for the ladder's timesteps: [U, 3, 6, d] (the input x is tiny; the linear is 1 GB).
+    lin = torch.nn.Linear(cfg.adaln_in(), 18 * d)
+    load_adaln(lin, src, cfg, l)
+    x = torch.tensor(ts["x"], dtype=torch.float32)  # [U, adaln_in]
+    with torch.no_grad():
+        rows = lin(x).reshape(-1, 3, 6, d).numpy().astype(np.float16)
+    np.save(out_dir / f".adaln_{l:02d}.npy", rows)
+    return {"l": l, **entry}
+
+
 def _quantize(path: Path, weights: str) -> None:
     from ai_edge_quantizer import quantizer, recipe
 
@@ -87,6 +125,7 @@ def export(
     variant: Variant,
     *,
     dit_src: WeightSource,
+    src_spec,
     vae_src: WeightSource | None,
     audio_src: WeightSource | None,
     tae_src: WeightSource | None,
@@ -104,6 +143,7 @@ def export(
     tile: int = TILE,
     with_encoders: bool = True,
     extra_rows: tuple[int, ...] = (),
+    jobs: int = 1,
     log=print,
 ) -> dict:
     if weights not in WEIGHT_FORMATS:
@@ -135,8 +175,8 @@ def export(
         done(name, t0)
         return name
 
-    # ---- DiT ------------------------------------------------------------------------
-    dit = H3Dit(cfg).eval()
+    # ---- DiT (everything but the blocks) ------------------------------------------------
+    dit = H3Dit(cfg, with_blocks=False).eval()
     load_dit(dit, dit_src)
     d, H, hd, inner = cfg.hidden, cfg.heads, cfg.head_dim, cfg.dim
     sampler = variant.sampler_json()
@@ -155,23 +195,46 @@ def export(
     else:
         graphs["head_video"] = conv("head_video.tflite", HeadGraph(dit.head_video), head_kw, False)
         graphs["head_audio"] = conv("head_audio.tflite", HeadGraph(dit.head_audio), head_kw, False)
-    blocks = []
-    for l in range(cfg.layers):
-        qkv = conv(f"block_{l:02d}_qkv.tflite", dit.qkv_graph(l),
-                   {"h": torch.randn(chunk, d), "mods": torch.randn(6, d), "cos": torch.rand(chunk, cfg.rotary_dim() // 2), "sin": torch.rand(chunk, cfg.rotary_dim() // 2)}, True)
-        post = conv(f"block_{l:02d}_post.tflite", dit.post_graph(l), {"h": torch.randn(chunk, d), "o": torch.randn(chunk, inner), "mods": torch.randn(6, d)}, True)
-        blocks.append({"qkv": qkv, "post": post, "bytes": files[qkv]["bytes"] + files[post]["bytes"]})
-    graphs["blocks"] = blocks
 
-    # ---- AdaLN table -------------------------------------------------------------------
-    t0 = time.time()
-    ts = sorted({v for s in sampler["steps"] for v in (s["t_video"], s["t_audio"])} | {sampler["cond_video_t"], sampler["cond_audio_t"]})
+    # ---- the ladder's timesteps and the AdaLN input -----------------------------------------
+    ts = sorted({v for st in sampler["steps"] for v in (st["t_video"], st["t_audio"])} | {sampler["cond_video_t"], sampler["cond_audio_t"]})
     ts = [float(np.float32(t)) for t in ts]
     with torch.no_grad():
-        tab, head = dit.adaln_tables(torch.tensor(ts, dtype=torch.float32))
+        x_adaln = dit.time.adaln_input(torch.tensor(ts, dtype=torch.float32))  # [U, adaln_in]
+        head = dit.norm_out_linear(x_adaln).reshape(-1, 2, d).numpy().astype(np.float16)
+
+    # ---- blocks, one at a time, `jobs` at once ------------------------------------------------
+    job_args = [(cfg.to_json(), src_spec, l, str(out_dir), chunk, weights, {"x": x_adaln.numpy().tolist()}) for l in range(cfg.layers)]
+    results = []
+    if jobs > 1:
+        import multiprocessing as mp
+
+        with mp.get_context("spawn").Pool(jobs) as pool:
+            for r in pool.imap_unordered(_block_job, job_args):
+                results.append(r)
+                log(f"  block {r['l']:02d}: qkv {r['qkv_secs']} s, post {r['post_secs']} s")
+    else:
+        for a in job_args:
+            r = _block_job(a)
+            results.append(r)
+            log(f"  block {r['l']:02d}: qkv {r['qkv_secs']} s, post {r['post_secs']} s")
+    results.sort(key=lambda r: r["l"])
+    blocks = []
+    for r in results:
+        for k in ("qkv", "post"):
+            pth = out_dir / r[k]
+            files[r[k]] = {"bytes": pth.stat().st_size, "sha256": _sha(pth)}
+        blocks.append({"qkv": r["qkv"], "post": r["post"], "bytes": files[r["qkv"]]["bytes"] + files[r["post"]]["bytes"]})
+    graphs["blocks"] = blocks
+
+    # ---- AdaLN table --------------------------------------------------------------------------
+    t0 = time.time()
+    tab = np.stack([np.load(out_dir / f".adaln_{l:02d}.npy") for l in range(cfg.layers)], axis=1)  # [U, L, 3, 6, d]
+    for l in range(cfg.layers):
+        (out_dir / f".adaln_{l:02d}.npy").unlink()
     from safetensors.numpy import save_file
 
-    save_file({"timesteps": np.array(ts, np.float32), "blocks": tab.numpy().astype(np.float16), "head": head.numpy().astype(np.float16)},
+    save_file({"timesteps": np.array(ts, np.float32), "blocks": np.ascontiguousarray(tab), "head": np.ascontiguousarray(head)},
               str(out_dir / "adaln.safetensors"))
     done("adaln.safetensors", t0)
 
@@ -285,7 +348,7 @@ def export_tiny(out_dir: Path, weights: str = "f32", log=print) -> dict:
     v = by_name("tiny")
     src = Synthetic(0)
     vae_cfg, audio_cfg, tae_cfg = VideoVaeConfig.tiny(), AudioVaeConfig.tiny(), TaeH3Config.tiny()
-    manifest = export(out_dir, v, dit_src=src, vae_src=src, audio_src=src, tae_src=src, vae_cfg=vae_cfg, audio_cfg=audio_cfg, tae_cfg=tae_cfg,
+    manifest = export(out_dir, v, dit_src=src, src_spec=("synthetic", 0), vae_src=src, audio_src=src, tae_src=src, vae_cfg=vae_cfg, audio_cfg=audio_cfg, tae_cfg=tae_cfg,
                       sizes=[TINY_GEOMETRY], model_name="tiny", weights=weights, chunk=16, q_chunk=32, head_group=1, text_buckets=(8, 16),
                       tae_frames=5, log=log)
     embeds = tiny_prompt(v.config)

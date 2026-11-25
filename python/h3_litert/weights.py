@@ -138,23 +138,31 @@ def _conv(src, mod, key: str, shape, bias: bool = True):
 
 
 @torch.no_grad()
-def load_dit(dit, src: WeightSource) -> None:
-    from .dit import AttnFf
-
-    cfg: H3Config = dit.cfg
+def load_attn_ff(u, src: WeightSource, p: str) -> None:
+    """One attention + SwiGLU unit (`transformer_blocks.N` or `token_refiner.refiner_blocks.N`)."""
+    cfg: H3Config = u.cfg
     d, inner, ffn = cfg.hidden, cfg.dim, cfg.ffn_dim
+    for m in ("to_q", "to_k", "to_v"):
+        _lin(src, getattr(u, m), f"{p}.attn.{m}", (inner, d), False)
+    _lin(src, u.to_out, f"{p}.attn.to_out.0", (d, inner), False)
+    u.norm_q.copy_(_t(src, f"{p}.attn.norm_q.weight", (cfg.head_dim,)))
+    u.norm_k.copy_(_t(src, f"{p}.attn.norm_k.weight", (cfg.head_dim,)))
+    u.norm1.copy_(_t(src, f"{p}.norm1.weight", (d,)))
+    u.norm2.copy_(_t(src, f"{p}.norm2.weight", (d,)))
+    _lin(src, u.ff_in, f"{p}.ff.net.0.proj", (2 * ffn, d), False)
+    _lin(src, u.ff_out, f"{p}.ff.net.2", (d, ffn), False)
 
-    def unit(u: AttnFf, p: str):
-        for m in ("to_q", "to_k", "to_v"):
-            _lin(src, getattr(u, m), f"{p}.attn.{m}", (inner, d), False)
-        _lin(src, u.to_out, f"{p}.attn.to_out.0", (d, inner), False)
-        u.norm_q.copy_(_t(src, f"{p}.attn.norm_q.weight", (cfg.head_dim,)))
-        u.norm_k.copy_(_t(src, f"{p}.attn.norm_k.weight", (cfg.head_dim,)))
-        u.norm1.copy_(_t(src, f"{p}.norm1.weight", (d,)))
-        u.norm2.copy_(_t(src, f"{p}.norm2.weight", (d,)))
-        _lin(src, u.ff_in, f"{p}.ff.net.0.proj", (2 * ffn, d), False)
-        _lin(src, u.ff_out, f"{p}.ff.net.2", (d, ffn), False)
 
+@torch.no_grad()
+def load_adaln(lin: torch.nn.Linear, src: WeightSource, cfg: H3Config, l: int) -> None:
+    _lin(src, lin, f"transformer_blocks.{l}.adaln_proj.linear", (18 * cfg.hidden, cfg.adaln_in()), True)
+
+
+@torch.no_grad()
+def load_dit(dit, src: WeightSource) -> None:
+    """Fill a `dit.H3Dit` (everything it allocated: with `with_blocks=False`, the blocks are skipped)."""
+    cfg: H3Config = dit.cfg
+    d = cfg.hidden
     _lin(src, dit.embed_video.proj, "proj_in", (d, cfg.video_patch_dim()), True)
     _lin(src, dit.embed_audio.proj, "audio_proj_in", (d, cfg.audio_in_channels), True)
     _lin(src, dit.text.context_embedder, "context_embedder", (d, cfg.text_dim), True)
@@ -169,10 +177,16 @@ def load_dit(dit, src: WeightSource) -> None:
     _lin(src, dit.head_audio.proj, "audio_proj_out", (heads * cfg.audio_in_channels, d), True)
     dit.text.final_norm.copy_(_t(src, "token_refiner.final_norm.weight", (d,)))
     for l, u in enumerate(dit.text.blocks):
-        unit(u, f"token_refiner.refiner_blocks.{l}")
+        load_attn_ff(u, src, f"token_refiner.refiner_blocks.{l}")
     for l, u in enumerate(dit.blocks):
-        unit(u, f"transformer_blocks.{l}")
-        _lin(src, dit.adaln[l], f"transformer_blocks.{l}.adaln_proj.linear", (18 * d, cfg.adaln_in()), True)
+        load_attn_ff(u, src, f"transformer_blocks.{l}")
+        load_adaln(dit.adaln[l], src, cfg, l)
+
+
+def open_source(spec):
+    """`("safetensors", path)` or `("synthetic", seed)` → a WeightSource (picklable for worker processes)."""
+    kind, arg = spec
+    return SafetensorsDir(arg) if kind == "safetensors" else Synthetic(int(arg))
 
 
 # ---- video VAE -----------------------------------------------------------------------

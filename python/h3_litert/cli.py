@@ -40,11 +40,11 @@ def cmd_export(a) -> int:
     vae_cfg = VideoVaeConfig.fasth3_trim() if v.name == "fasth3-trim" else VideoVaeConfig.h3()
     sizes = [Geometry.parse(s) for s in a.size] if a.size else [H3_768P]
     weights = a.weights or "f16"
-    export(Path(a.out), v, dit_src=SafetensorsDir(tdir), vae_src=SafetensorsDir(base / "vae") if (base / "vae").is_dir() else None,
+    export(Path(a.out), v, dit_src=SafetensorsDir(tdir), src_spec=("safetensors", str(tdir)), vae_src=SafetensorsDir(base / "vae") if (base / "vae").is_dir() else None,
            audio_src=SafetensorsDir(base / "audio_vae") if (base / "audio_vae").is_dir() else None,
            tae_src=SafetensorsDir(Path(a.tae)) if a.tae else None, vae_cfg=vae_cfg, audio_cfg=AudioVaeConfig.h3(),
            tae_cfg=TaeH3Config.taeh3() if a.tae else None, sizes=sizes, model_name="h3", weights=weights, chunk=a.chunk,
-           q_chunk=a.q_chunk, head_group=a.head_group, with_encoders=not a.no_encoders, extra_rows=tuple(a.rows or ()), log=_log)
+           q_chunk=a.q_chunk, head_group=a.head_group, with_encoders=not a.no_encoders, extra_rows=tuple(a.rows or ()), jobs=a.jobs, log=_log)
     return 0
 
 
@@ -153,6 +153,7 @@ def main(argv=None) -> int:
     e.add_argument("--size", action="append", help="WxHxF (repeatable; default 1344x768x124)")
     e.add_argument("--rows", type=int, action="append", help="extra packed-sequence lengths to export attention graphs for (Ref2VA)")
     e.add_argument("--no-encoders", action="store_true")
+    e.add_argument("--jobs", type=int, default=1, help="block graphs converted in parallel worker processes")
     e.set_defaults(fn=cmd_export)
 
     def rt(p):
