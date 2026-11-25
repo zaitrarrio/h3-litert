@@ -150,7 +150,7 @@ class Pipeline:
         ratio = self.m.vae.spatial_ratio()
 
         def run(x: np.ndarray) -> np.ndarray:
-            name = vv["encoder_image"] if x.shape[1] == 1 else vv["encoder_clip"]
+            name = vv.get("encoder_image" if x.shape[1] == 1 else "encoder_clip") if vv else None
             if name is None:
                 raise ValueError("this export has no VAE encoder graphs (exported with --no-encoders)")
             return vae_host.tiled(x, 1, ratio, vv["tile"], vv["overlap"], lambda t: self.store.fixed(name).run(x=t)[0])
