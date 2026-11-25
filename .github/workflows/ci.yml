@@ -1,0 +1,40 @@
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install (CPU torch, litert-torch, diffusers)
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.9.1"
+          pip install -e "python[test]" "torchao==0.14.1" "jax==0.8.2" "jaxlib==0.8.2"
+      - name: Tests (host math, Diffusers parity, graph parity)
+        run: cd python && pytest -q
+      - name: Fixture check (the committed graphs vs the PyTorch reference)
+        run: h3-litert check --graphs fixtures/tiny
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: cd web && npm ci
+      - run: cd web && npx tsc --noEmit && npx vitest run
+      - name: Fixture in headless Chromium (LiteRT.js, Wasm)
+        run: cd web && npx playwright install --with-deps chromium && node tests/run-fixture.mjs
+  android-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: cd android && ./gradlew :core:test
