@@ -1,0 +1,408 @@
+{
+ "format": "h3-litert/1",
+ "model": "tiny",
+ "variant": "tiny",
+ "config": {
+  "hidden": 32,
+  "heads": 2,
+  "head_dim": 16,
+  "layers": 2,
+  "refiner_layers": 1,
+  "ffn_dim": 48,
+  "in_channels": 4,
+  "audio_in_channels": 6,
+  "patch": [
+   1,
+   2,
+   2
+  ],
+  "text_dim": 24,
+  "freq_dim": 16,
+  "time_embed_hidden": 32,
+  "time_embed_dim": 24,
+  "rope_freq_dim": 2,
+  "rope_theta": 10000.0,
+  "norm_eps": 1e-05,
+  "qk_norm_eps": 1e-05,
+  "final_norm_eps": 1e-05,
+  "adaln_rank": null,
+  "pdd_steps": null,
+  "kept_block_indices": null
+ },
+ "vae": {
+  "in_channels": 3,
+  "latent_channels": 4,
+  "block_out_channels": [
+   8,
+   8,
+   16,
+   16,
+   16,
+   16
+  ],
+  "layers_per_block": 1,
+  "spatial_down": [
+   2,
+   2,
+   2,
+   2,
+   1,
+   1
+  ],
+  "temporal_down": [
+   1,
+   2,
+   2,
+   1,
+   1,
+   1
+  ],
+  "norm_groups": 4,
+  "norm_eps": 1e-06,
+  "decoder_layers": 2,
+  "decoder_heads": 2,
+  "decoder_head_dim": 16,
+  "decoder_register_tokens": 2,
+  "decoder_ffn_mult": 2,
+  "decoder_rope_theta": 100.0,
+  "decoder_rope_dim_ratio": 0.75,
+  "decoder_norm_eps": 1e-05,
+  "clip_length": 17,
+  "token_drop": 3,
+  "latents_mean": [
+   0.1,
+   -0.2,
+   0.3,
+   0.0
+  ],
+  "latents_std": [
+   1.1,
+   0.9,
+   1.3,
+   1.0
+  ]
+ },
+ "audio_vae": {
+  "encoder_dim": 4,
+  "encoder_rates": [
+   2,
+   5
+  ],
+  "latent_dim": 24,
+  "latent_channels": 6,
+  "decoder_dim": 8,
+  "decoder_rates": [
+   5,
+   2
+  ],
+  "decoder_kernels": [
+   9,
+   4
+  ],
+  "heads": 2,
+  "resblock_kernels": [
+   3,
+   7
+  ],
+  "resblock_dilations": [
+   [
+    1,
+    3
+   ],
+   [
+    1,
+    3
+   ]
+  ],
+  "sample_rate": 320,
+  "latents_mean": [
+   0.0,
+   0.1,
+   -0.1,
+   0.2,
+   0.05,
+   -0.3
+  ],
+  "latents_std": [
+   1.0,
+   1.5,
+   0.8,
+   1.2,
+   0.9,
+   1.1
+  ]
+ },
+ "taeh3": {
+  "latent_channels": 4,
+  "widths": [
+   8,
+   6,
+   4,
+   4
+  ],
+  "tgrow": [
+   1,
+   2,
+   2
+  ],
+  "mem_blocks": 3,
+  "patch": 2
+ },
+ "sampler": {
+  "rule": "euler",
+  "shifts": {
+   "video": 10.0,
+   "audio": 3.0
+  },
+  "steps": [
+   {
+    "t_video": 0.00010013580322265625,
+    "t_audio": 0.00033360719680786133,
+    "sigma_video": 0.9998998641967773,
+    "sigma_video_next": 0.9090909361839294,
+    "sigma_audio": 0.9996663928031921,
+    "sigma_audio_next": 0.75,
+    "pdd_video_weights": null,
+    "pdd_audio_weights": null
+   },
+   {
+    "t_video": 0.09090906381607056,
+    "t_audio": 0.25,
+    "sigma_video": 0.9090909361839294,
+    "sigma_video_next": 0.0,
+    "sigma_audio": 0.75,
+    "sigma_audio_next": 0.0,
+    "pdd_video_weights": null,
+    "pdd_audio_weights": null
+   }
+  ],
+  "cond_video_t": 0.999,
+  "cond_audio_t": 1.0
+ },
+ "adaln": {
+  "file": "adaln.safetensors",
+  "timesteps": [
+   0.00010013580322265625,
+   0.00033360719680786133,
+   0.09090906381607056,
+   0.25,
+   0.9990000128746033,
+   1.0
+  ]
+ },
+ "weights": "f32",
+ "chunk": 16,
+ "head_group": 1,
+ "graphs": {
+  "text_refine": [
+   {
+    "rows": 8,
+    "file": "text_refine_8.tflite"
+   },
+   {
+    "rows": 16,
+    "file": "text_refine_16.tflite"
+   }
+  ],
+  "embed_video": "embed_video.tflite",
+  "embed_audio": "embed_audio.tflite",
+  "head_video": "head_video.tflite",
+  "head_audio": "head_audio.tflite",
+  "blocks": [
+   {
+    "qkv": "block_00_qkv.tflite",
+    "post": "block_00_post.tflite",
+    "bytes": 54368
+   },
+   {
+    "qkv": "block_01_qkv.tflite",
+    "post": "block_01_post.tflite",
+    "bytes": 54368
+   }
+  ]
+ },
+ "attention": [
+  {
+   "tokens": 124,
+   "q_chunk": 32,
+   "heads": 1,
+   "file": "attn_s124_q32_h1.tflite"
+  },
+  {
+   "tokens": 130,
+   "q_chunk": 32,
+   "heads": 1,
+   "file": "attn_s130_q32_h1.tflite"
+  },
+  {
+   "tokens": 136,
+   "q_chunk": 32,
+   "heads": 1,
+   "file": "attn_s136_q32_h1.tflite"
+  },
+  {
+   "tokens": 132,
+   "q_chunk": 32,
+   "heads": 1,
+   "file": "attn_s132_q32_h1.tflite"
+  },
+  {
+   "tokens": 138,
+   "q_chunk": 32,
+   "heads": 1,
+   "file": "attn_s138_q32_h1.tflite"
+  },
+  {
+   "tokens": 144,
+   "q_chunk": 32,
+   "heads": 1,
+   "file": "attn_s144_q32_h1.tflite"
+  }
+ ],
+ "video_vae": {
+  "decoder": {
+   "latent_t": 7,
+   "latent_h": 4,
+   "latent_w": 6,
+   "rows": 171,
+   "in": "vae_dec_in.tflite",
+   "blocks": [
+    "vae_dec_block_00.tflite",
+    "vae_dec_block_01.tflite"
+   ],
+   "out": "vae_dec_out.tflite"
+  },
+  "tile": 256,
+  "overlap": 64,
+  "encoder_clip": "vae_enc_clip.tflite",
+  "encoder_image": "vae_enc_image.tflite"
+ },
+ "audio": [
+  {
+   "latents": 37,
+   "decoder": "avae_dec_37.tflite",
+   "encoder": "avae_enc_37.tflite"
+  }
+ ],
+ "taeh3_graphs": [
+  {
+   "frames": 5,
+   "latent_h": 4,
+   "latent_w": 6,
+   "file": "taeh3_f5_4x6.tflite"
+  }
+ ],
+ "sizes": [
+  {
+   "width": 96,
+   "height": 64,
+   "frames": 22
+  }
+ ],
+ "files": {
+  "text_refine_8.tflite": {
+   "bytes": 52348,
+   "sha256": "8408836a5d072d90e4bf758b37e1ebe2648027896a2d5870c1b2a3789ef047eb"
+  },
+  "text_refine_16.tflite": {
+   "bytes": 52348,
+   "sha256": "9bf1c4de8a981b7b7f2f27e4e82077e00661cac6125134df0a7eee3887078a5f"
+  },
+  "embed_video.tflite": {
+   "bytes": 3288,
+   "sha256": "e80c52203026256ac7f5ed8bfd9fcd7eeb8d1fe9789346b3844169a92b2876d7"
+  },
+  "embed_audio.tflite": {
+   "bytes": 2008,
+   "sha256": "b97271e4e633a531b2227d2726ed5f45d08af663bda9958b9a3ef7a4631d3a42"
+  },
+  "head_video.tflite": {
+   "bytes": 7268,
+   "sha256": "1775a3b6a7aaed32a60d0d70b92b403fa83667d5d2bd2dfa47aa0c5159c27b3e"
+  },
+  "head_audio.tflite": {
+   "bytes": 5948,
+   "sha256": "039f9c21372dd1c5b4641feeb791555fd15bca2b9e766a66e75460085ed5dd1e"
+  },
+  "block_00_qkv.tflite": {
+   "bytes": 24904,
+   "sha256": "2e3715c8480b7ba9b1c7464e486b8c7b21b75e2915b1ffd93a3312d00a0d0783"
+  },
+  "block_00_post.tflite": {
+   "bytes": 29464,
+   "sha256": "2ecce56f1c5f6462c33c434d0507f35c9d9890f752d5657464083286f82e772a"
+  },
+  "block_01_qkv.tflite": {
+   "bytes": 24904,
+   "sha256": "d88d2233807f08a7de3cc7dbad62afce906526178590b332885dbb48c5c2a101"
+  },
+  "block_01_post.tflite": {
+   "bytes": 29464,
+   "sha256": "fe39a49f8fdf0fa80d4443aca2b67f765387a0fcbbe3e61016ff2fa7a11028ec"
+  },
+  "adaln.safetensors": {
+   "bytes": 14832,
+   "sha256": "7829246c53a2df8bcb610974d83267053fe24683edcc9b34209e75033dbe015e"
+  },
+  "attn_s124_q32_h1.tflite": {
+   "bytes": 3024,
+   "sha256": "44c8d6cfeddae6b25e812960aedaefd1f324a808f22719260acb107236cba036"
+  },
+  "attn_s130_q32_h1.tflite": {
+   "bytes": 3024,
+   "sha256": "874fa57071e1c81f7b700f309f26dfcaf4b9566cacc06e0c67070d8828b20189"
+  },
+  "attn_s136_q32_h1.tflite": {
+   "bytes": 3024,
+   "sha256": "91c82c1a768b70e854535f2276f20df4812cca46debf451f0bb6f930afc26067"
+  },
+  "attn_s132_q32_h1.tflite": {
+   "bytes": 3024,
+   "sha256": "92a3302140f571489ccf6baa30556a596530df21d88c26d4bb72a13660d52631"
+  },
+  "attn_s138_q32_h1.tflite": {
+   "bytes": 3024,
+   "sha256": "45374095068012eb841b3a833149891f2cbda42f7c8f5ab1725c10672c2331ff"
+  },
+  "attn_s144_q32_h1.tflite": {
+   "bytes": 3024,
+   "sha256": "199010562fba4b7533abe1b501b76a76646c2014951eaa3d8fd2b33d582d697e"
+  },
+  "taeh3_f5_4x6.tflite": {
+   "bytes": 107900,
+   "sha256": "da406ab24ff214b47428dd98ab95ee2c632fc11056e12db0603deff78002d700"
+  },
+  "avae_dec_37.tflite": {
+   "bytes": 139084,
+   "sha256": "391ecc81910dfb089197ca611e55f9984ebc0cd9a257186a93928bfdc26d1933"
+  },
+  "avae_enc_37.tflite": {
+   "bytes": 132524,
+   "sha256": "5b8b67793e6fa503cb18d5390177bb6ce5737f213d571154e2565304a901640d"
+  },
+  "vae_dec_in.tflite": {
+   "bytes": 11996,
+   "sha256": "b78dcb9389c6bd38dacd56ba8e71cad83f0ed5177129e79dbf2eb925b21633c6"
+  },
+  "vae_dec_block_00.tflite": {
+   "bytes": 58472,
+   "sha256": "96395a3a446612c3d92d38851cb676d45ae60acbcd8f0dbb91e00ecb8d02adde"
+  },
+  "vae_dec_block_01.tflite": {
+   "bytes": 58472,
+   "sha256": "2181b89ae0eae9babf9b3b020871b816ce57b670db214ae7226830eab00a5178"
+  },
+  "vae_dec_out.tflite": {
+   "bytes": 411796,
+   "sha256": "a0bac626ffd217bf743542a2ee81ff09bbe30b6acf107e8990610c9a66cfc442"
+  },
+  "vae_enc_clip.tflite": {
+   "bytes": 526416,
+   "sha256": "ba110ebbcc211735d4bb75b8f568778c16c55170033551098691a13cd975b7f1"
+  },
+  "vae_enc_image.tflite": {
+   "bytes": 499392,
+   "sha256": "67ea5887aec0a784a1737c76cdbf4d444661f82d52cd721959ea086c743e29b5"
+  }
+ }
+}
