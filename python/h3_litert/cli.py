@@ -62,7 +62,9 @@ def _load_prompt(path: str):
     emb = t.get("prompt_embeds", t.get("embeds"))
     if emb is None:
         raise SystemExit(f"{path}: no prompt_embeds")
-    tags = t["text_tags"].astype(int).tolist() if "text_tags" in t else [1] * emb.shape[0]
+    # h3-rs galleries write `prompt_embeds` (F16 or F32) and `token_tags` (U8); the tiny fixture `text_tags`.
+    tags_t = t.get("token_tags", t.get("text_tags"))
+    tags = tags_t.astype(int).tolist() if tags_t is not None else [1] * emb.shape[0]
     return emb.astype(np.float32), tags
 
 
