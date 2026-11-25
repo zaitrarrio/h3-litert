@@ -14,6 +14,7 @@ import json
 import os
 import re
 import threading
+import warnings
 from collections import OrderedDict
 from pathlib import Path
 
@@ -52,7 +53,14 @@ class Graph:
         elif accelerator == "gpu":
             from ai_edge_litert import compiled_model as cm
 
-            self._cm = cm.CompiledModel.from_file(self.path, cm.HardwareAccelerator.GPU)
+            try:
+                self._cm = cm.CompiledModel.from_file(self.path, cm.HardwareAccelerator.GPU)
+            except RuntimeError as e:
+                # the accelerator refuses some graphs (Conv3D, grouped 1-D convs, large f16 blocks
+                # on the WebGPU backend): that graph runs on the CPU, the rest stay on the GPU
+                warnings.warn(f"{os.path.basename(self.path)}: GPU compile failed ({str(e).strip().splitlines()[-1][:80]}); running it on the CPU")
+                self.__init__(path, "cpu", threads)
+                return
             sig = self._cm.get_signature_list()
             self.signature = next(iter(sig))
             self.input_names = list(sig[self.signature]["inputs"])
