@@ -59,6 +59,11 @@ class Graph:
             self.output_names = _output_order(sig[self.signature]["outputs"])
             self._in = {n: self._cm.create_input_buffer_by_name(self.signature, n) for n in self.input_names}
             self._out = {n: self._cm.create_output_buffer_by_name(self.signature, n) for n in self.output_names}
+            # CompiledModel has no output-shape query; a metadata-only interpreter answers it
+            from ai_edge_litert import interpreter as li
+
+            det = li.Interpreter(model_path=self.path).get_signature_runner(self.signature).get_output_details()
+            self._out_shape = {n: tuple(int(x) for x in det[n]["shape"]) for n in self.output_names}
             self._it = None
         else:
             raise ValueError(f"accelerator `{accelerator}` is not cpu or gpu")
@@ -76,7 +81,10 @@ class Graph:
             for n, v in feed.items():
                 self._in[n].write(v)
             self._cm.run_by_name(self.signature, self._in, self._out)
-            return [np.asarray(self._out[n].read(), dtype=np.float32) for n in self.output_names]
+            return [
+                np.asarray(self._out[n].read(int(np.prod(self._out_shape[n])), np.float32), dtype=np.float32).reshape(self._out_shape[n])
+                for n in self.output_names
+            ]
 
     def input_shape(self, name: str) -> tuple[int, ...]:
         if self._it is not None:
