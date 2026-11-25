@@ -23,10 +23,6 @@ def _squeeze(s):
     return tuple(d for d in s if d != 1)
 
 
-def _bf16_to_f32(t: np.ndarray) -> np.ndarray:
-    raw = np.frombuffer(t.tobytes(), dtype=np.uint16).astype(np.uint32) << 16
-    return raw.view(np.float32).reshape(t.shape)
-
 
 class SafetensorsDir:
     """All `*.safetensors` under a directory (or one file), read lazily; also
@@ -39,7 +35,8 @@ class SafetensorsDir:
         files = sorted(path.glob("*.safetensors")) if path.is_dir() else [path]
         if not files:
             raise FileNotFoundError(f"no .safetensors in {path}")
-        self._files = [safe_open(str(f), framework="np") for f in files]
+        # torch framework: bf16 checkpoints (MiniMax-H3, FastH3) read where numpy's reader refuses them
+        self._files = [safe_open(str(f), framework="pt") for f in files]
         self._index = {k: i for i, f in enumerate(self._files) for k in f.keys()}
 
     def contains(self, name: str) -> bool:
@@ -51,10 +48,10 @@ class SafetensorsDir:
     def _raw(self, name: str) -> np.ndarray:
         if name not in self._index:
             raise KeyError(f"missing tensor `{name}`")
+        import torch
+
         t = self._files[self._index[name]].get_tensor(name)
-        if str(t.dtype) == "bfloat16" or t.dtype == np.dtype("V2"):
-            t = _bf16_to_f32(t)
-        return np.asarray(t, dtype=np.float32)
+        return t.to(torch.float32).numpy()
 
     def get(self, name: str, shape: tuple[int, ...]) -> np.ndarray:
         if name not in self._index and name.endswith(".weight") and name + "_v" in self._index:
