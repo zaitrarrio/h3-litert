@@ -28,7 +28,7 @@ jobs:
       - run: cd web && npm ci
       - run: cd web && npx tsc --noEmit && npx vitest run
       - name: Fixture in headless Chromium (LiteRT.js, Wasm)
-        run: cd web && npx playwright install --with-deps chromium && node tests/run-fixture.mjs
+        run: cd web && npx playwright install --with-deps chromium && npm run test:fixture
   android-core:
     runs-on: ubuntu-latest
     timeout-minutes: 20
