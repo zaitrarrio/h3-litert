@@ -9,11 +9,11 @@ description = "MiniMax H3 (video + audio) on LiteRT: exporter, desktop runtime a
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
-dependencies = ["numpy>=1.26", "safetensors>=0.4", "ai-edge-litert>=2.1"]
+dependencies = ["numpy>=1.26", "safetensors>=0.4", "ai-edge-litert==2.1.2"]
 
 [project.optional-dependencies]
-export = ["torch>=2.9", "litert-torch>=0.8", "ai-edge-quantizer>=0.4"]
-test = ["pytest>=8", "diffusers>=0.43", "torch>=2.9", "litert-torch>=0.8", "ai-edge-quantizer>=0.4"]
+export = ["torch>=2.9", "litert-torch==0.8.0", "ai-edge-quantizer==0.4.2"]
+test = ["pytest>=8", "diffusers>=0.43", "torch>=2.9", "litert-torch==0.8.0", "ai-edge-quantizer==0.4.2"]
 encode = ["torch>=2.9", "transformers>=5", "pillow"]
 
 [project.scripts]
