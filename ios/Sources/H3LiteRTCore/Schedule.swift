@@ -31,7 +31,7 @@ public func linspaceF64(start: Double, end: Double, n: Int) -> [Double] {
     return (0..<n).map { i in i < n / 2 ? start + step * Double(i) : end - step * Double(n - 1 - i) }
 }
 
-public struct Shifts: Equatable {
+public struct Shifts: Equatable, Codable, Sendable {
     public var video: Double
     public var audio: Double
 
