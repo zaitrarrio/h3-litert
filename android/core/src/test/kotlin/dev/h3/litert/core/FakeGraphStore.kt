@@ -108,7 +108,7 @@ class FakeGraphStore(manifest: Manifest, resident: Int = 4) : GraphStore(manifes
                 }
                 name == g.headVideo || name == g.headAudio -> {
                     val spec = mutableListOf("h" to listOf(C, d), "mods" to listOf(2, d))
-                    if (c.pddSteps != null) spec += "weights" to listOf(c.pddSteps!!)
+                    if (c.pddSteps != null) spec += "weights" to listOf(c.pddSteps)
                     expect(inputs, *spec.toTypedArray())
                     listOf(rowsOf(rowMarker(inputs["h"]!!), if (name == g.headVideo) c.videoPatchDim() else c.audioInChannels))
                 }

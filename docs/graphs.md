@@ -266,7 +266,7 @@ all-f32 export). LoRA adapters are merged before quantisation.
 synthetic weights; `C = 16`, `Cq = 32`, `G = 1`; a two-step Euler ladder
 (rungs 999 / 500, shifts 10 / 3); geometry `96×64×22` (latent `(7, 4, 6)`,
 37 audio latents, a 6-row prompt tagged `[1, 1, 0, 1, 1, 1]`: 122 packed
-rows); the decoder at `latent_t 7, 4×6` (`R = 171`), audio `A = 37`,
+rows, 124 with the two pad rows of the 8-row text bucket); the decoder at `latent_t 7, 4×6` (`R = 171`), audio `A = 37`,
 TAEH3 `F = 5`. `expected.safetensors` holds the prompt, the denoised video
 latent `[4, 7, 4, 6]`, the target audio rows `[74, 6]`, the decoded frames
 `[22, 64, 96, 3]` uint8 and the stereo waveform `[2, 370]`, for seed 7, from
