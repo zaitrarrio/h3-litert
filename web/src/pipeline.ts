@@ -7,7 +7,7 @@
  */
 
 import type { AdalnTables } from "./adaln.js";
-import { TEXT_TAG, type H3Config } from "./config.js";
+import { TEXT_TAG, TaeH3Config, type H3Config } from "./config.js";
 import { roundF16 } from "./f16.js";
 import type { Graph, GraphInput, GraphStore } from "./graphs.js";
 import type { AttentionEntry, Manifest } from "./manifest.js";
@@ -129,6 +129,9 @@ export interface Denoised {
   /** `A`, the audio latents per channel. */
   audioLatents: number;
   layout: Layout;
+  /** Packed rows before and after the text padding (the attention graph's `S`). */
+  tokens: number;
+  paddedTokens: number;
 }
 
 /** Everything `forward` needs that does not change between steps. */
@@ -530,7 +533,7 @@ export class Pipeline {
       height: lh,
       width: lw,
     };
-    return { latent, audioRows: p.audioRows, audioLatents: req.geometry.audioLatents(), layout: p.layout };
+    return { latent, audioRows: p.audioRows, audioLatents: req.geometry.audioLatents(), layout: p.layout, tokens: p.layout.sequenceLength, paddedTokens: p.s };
   }
 
   // ---- decode -------------------------------------------------------------------------------
@@ -634,7 +637,7 @@ export class Pipeline {
       mems = out.slice(1);
       const real = n * up;
       const keep: number[] = [];
-      for (let i = 0; i < real; i++) if (tc.keepsRawFrameAt(rawIndex + i)) keep.push(i);
+      for (let i = 0; i < real; i++) if (TaeH3Config.keepsRawFrame(rawIndex + i)) keep.push(i);
       rawIndex += real;
       if (keep.length) {
         // gather the kept frames as [3, n, H, W] for the shared quantiser

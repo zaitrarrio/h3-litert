@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>H3 on LiteRT.js</title>
+<!--
+  The two LiteRT.js packages are plain ES modules; the import map says where
+  they are served from. For a hosted page without node_modules, point both at
+  jsDelivr instead:
+    "@litertjs/core":       "https://cdn.jsdelivr.net/npm/@litertjs/core@2.6.0/dist/index.js",
+    "@litertjs/wasm-utils": "https://cdn.jsdelivr.net/npm/@litertjs/wasm-utils@2.6.0/dist/index.js"
+  and set data-wasm-dir below to https://cdn.jsdelivr.net/npm/@litertjs/core@2.6.0/wasm/
+-->
+<script type="importmap">
+{
+  "imports": {
+    "@litertjs/core": "../node_modules/@litertjs/core/dist/index.js",
+    "@litertjs/wasm-utils": "../node_modules/@litertjs/wasm-utils/dist/index.js"
+  }
+}
+</script>
+<style>
+:root{--bg:#0f1115;--fg:#e8e8ea;--mut:#8a8f98;--acc:#6ea8fe;--card:#171a21;--ok:#4cc38a;--bad:#f0616d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:8px 0 16px}
+h1 small{color:var(--mut);font-weight:400;font-size:14px;margin-left:8px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+label{display:flex;flex-direction:column;gap:4px;color:var(--mut);font-size:13px}
+label.check{flex-direction:row;align-items:center;gap:6px;padding-bottom:8px}
+select,input,button{background:var(--card);color:var(--fg);border:1px solid #2a2f3a;border-radius:6px;padding:8px 10px;font:inherit}
+input[type=text],input[type=url]{min-width:220px}
+input[type=file]{max-width:220px;font-size:12px}
+button{background:var(--acc);color:#0b1020;border:0;font-weight:600;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+button.secondary{background:var(--card);color:var(--fg);border:1px solid #2a2f3a}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+canvas{display:block;width:100%;background:#000;border-radius:8px;image-rendering:auto}
+.card{background:var(--card);border-radius:8px;padding:12px}
+.card h2{font-size:13px;color:var(--mut);margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em}
+#blocks{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:6px;font-size:11px}
+.blk{background:#0f1115;border-radius:4px;padding:4px 6px;position:relative;overflow:hidden;color:var(--mut)}
+.blk .bar{position:absolute;left:0;top:0;bottom:0;background:rgba(110,168,254,.25);width:0}
+.blk.done{color:var(--fg)}
+.blk.live{outline:1px solid var(--acc)}
+.blk span{position:relative}
+#steps{font-variant-numeric:tabular-nums;font-size:13px}
+#steps div{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #22262f}
+#log{color:var(--mut);white-space:pre-wrap;font-size:13px;margin-top:8px;max-height:220px;overflow:auto;font-family:ui-monospace,monospace}
+.err{color:var(--bad)}
+.ok{color:var(--ok)}
+</style>
+</head>
+<body>
+<main>
+<h1>H3 on LiteRT.js <small id="info">loading…</small></h1>
+<div class="row">
+  <label>Graphs (base URL of manifest.json)<input id="base" type="text" value="./graphs/"></label>
+  <label>Gallery (dir with index.json)<input id="galleryUrl" type="text" value="./gallery/"></label>
+  <button id="load" class="secondary">Load</button>
+</div>
+<div class="row">
+  <label>Prompt<select id="prompt"></select></label>
+  <label>Size<select id="size"></select></label>
+  <label>Seed<input id="seed" type="number" value="7" style="width:100px"></label>
+  <label>Resident blocks<input id="resident" type="number" value="2" min="1" max="50" style="width:80px"></label>
+  <label class="check"><input id="preview" type="checkbox"> Preview (TAEH3)</label>
+</div>
+<div class="row">
+  <label>First keyframe (PNG, FL2VA)<input id="first" type="file" accept="image/png,image/*"></label>
+  <label>Last keyframe (PNG, FL2VA)<input id="last" type="file" accept="image/png,image/*"></label>
+  <button id="go" disabled>Generate</button>
+  <button id="stop" class="secondary" disabled>Stop</button>
+  <button id="play" class="secondary" disabled>Play audio</button>
+</div>
+<div class="grid">
+  <div>
+    <canvas id="view" width="1344" height="768"></canvas>
+    <div id="log"></div>
+  </div>
+  <div>
+    <div class="card"><h2>Downloads</h2><div id="blocks"></div><div id="dl" style="color:var(--mut);font-size:12px;margin-top:6px"></div></div>
+    <div class="card" style="margin-top:12px"><h2>Timings</h2><div id="steps"></div></div>
+    <div class="card" style="margin-top:12px"><h2>Plan</h2><pre id="plan" style="margin:0;font-size:11px;white-space:pre-wrap;color:var(--mut)"></pre></div>
+  </div>
+</div>
+</main>
+<script type="module" src="../dist/demo/studio.js" data-wasm-dir="../node_modules/@litertjs/core/wasm/"></script>
+</body>
+</html>
