@@ -43,12 +43,23 @@ class Graph:
         if accelerator == "cpu":
             from ai_edge_litert import interpreter as li
 
-            self._it = li.Interpreter(model_path=self.path, num_threads=threads or os.cpu_count() or 4)
-            sig = self._it.get_signature_list()
+            # Signature names → tensor indices from a throwaway instance (a signature runner
+            # pins the interpreter it came from); the real one runs raw: an input whose array
+            # is the same object as last call is not copied in again (the attention graph
+            # takes the whole K / V with every query chunk).
+            meta = li.Interpreter(model_path=self.path)
+            sig = meta.get_signature_list()
             self.signature = next(iter(sig))
             self.input_names = list(sig[self.signature]["inputs"])
             self.output_names = _output_order(sig[self.signature]["outputs"])
-            self._runner = self._it.get_signature_runner(self.signature)
+            runner = meta.get_signature_runner(self.signature)
+            self._in_idx = {n: int(d["index"]) for n, d in runner.get_input_details().items()}
+            self._out_idx = {n: int(d["index"]) for n, d in runner.get_output_details().items()}
+            self._in_shape = {n: tuple(int(x) for x in d["shape"]) for n, d in runner.get_input_details().items()}
+            del runner, meta
+            self._it = li.Interpreter(model_path=self.path, num_threads=threads or os.cpu_count() or 4)
+            self._it.allocate_tensors()
+            self._last: dict[str, np.ndarray] = {}
             self._cm = None
         elif accelerator == "gpu":
             from ai_edge_litert import compiled_model as cm
@@ -84,8 +95,12 @@ class Graph:
         feed = {k: np.ascontiguousarray(v, dtype=np.float32) for k, v in inputs.items()}
         with self._lock:
             if self._it is not None:
-                out = self._runner(**feed)
-                return [np.asarray(out[n]) for n in self.output_names]
+                for n, v in feed.items():
+                    if self._last.get(n) is not v:
+                        self._it.set_tensor(self._in_idx[n], v)
+                        self._last[n] = v
+                self._it.invoke()
+                return [np.array(self._it.get_tensor(self._out_idx[n])) for n in self.output_names]
             for n, v in feed.items():
                 self._in[n].write(v)
             self._cm.run_by_name(self.signature, self._in, self._out)
@@ -96,11 +111,7 @@ class Graph:
 
     def input_shape(self, name: str) -> tuple[int, ...]:
         if self._it is not None:
-            for d in self._it.get_input_details():
-                if d["name"].split(":")[0].endswith(name) or d["name"] == name:
-                    return tuple(int(x) for x in d["shape"])
-            det = self._runner.get_input_details()[name]
-            return tuple(int(x) for x in det["shape"])
+            return self._in_shape[name]
         det = self._cm.get_input_tensor_details(self.signature)[name]
         return tuple(int(x) for x in det["shape"])
 
